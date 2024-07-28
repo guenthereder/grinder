@@ -3,7 +3,7 @@
 DIY project to add timed grind buttons to the [Rancilio
 Rocky](https://www.coffeeness.de/en/rancilio-rocky-review/) grinder.
 
-| Rancilie Rocky | after modification |
+| Rancilio Rocky | after modification |
 |:-------------------------------------:|:-------------------------------------:|
 | <img src="doc/images/A.jpeg" width="256"> | <img src="doc/images/B.jpeg" width="256"> |
 
