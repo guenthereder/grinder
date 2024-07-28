@@ -1,0 +1,15 @@
+[Unit]
+Description=Grinder Control Flask App
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/grinder/
+ExecStart=/home/pi/grinder/.venv/bin/python /home/pi/grinder/grinder_control.py
+Environment="PATH=/home/pi/grinder/.venv/bin"
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

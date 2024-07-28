@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grinder Settings</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Grinder Timer Settings</h1>
+        <form method="POST" class="mt-4">
+            <div class="form-group">
+                <label for="single_time">Single Coffee Grind Time (milliseconds):</label>
+                <input type="number" class="form-control" id="single_time" name="single_time" value="{{ single_time }}" min="1" max="100000" required>
+            </div>
+            <div class="form-group">
+                <label for="double_time">Double Coffee Grind Time (milliseconds):</label>
+                <input type="number" class="form-control" id="double_time" name="double_time" value="{{ double_time }}" min="1" max="100000" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Save Settings</button>
+        </form>
+        <div class="mt-5">
+            <h3>Debug Controls</h3>
+            <form method="POST">
+                <button type="submit" name="action" value="single" class="btn btn-secondary btn-block mt-2">Trigger Single Grind</button>
+                <button type="submit" name="action" value="double" class="btn btn-secondary btn-block mt-2">Trigger Double Grind</button>
+            </form>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
