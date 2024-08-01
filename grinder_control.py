@@ -4,8 +4,8 @@ from gpiozero import Button, OutputDevice
 from flask import Flask, request, render_template
 
 # Define GPIO pins
-single_button = Button(17)
-double_button = Button(27)
+single_button = Button(17, hold_time=0.1)  # Require 100ms hold time
+double_button = Button(27, hold_time=0.1)  # Require 100ms hold time
 relay = OutputDevice(18)
 
 # Default grind times in milliseconds
@@ -27,8 +27,8 @@ def start_grinder(grind_time):
     time.sleep(grind_time / 1000.0)  # Convert milliseconds to seconds
     relay.off()
 
-single_button.when_pressed = lambda: start_grinder(grind_times["single"])
-double_button.when_pressed = lambda: start_grinder(grind_times["double"])
+single_button.when_held = lambda: start_grinder(grind_times["single"])
+double_button.when_held = lambda: start_grinder(grind_times["double"])
 
 app = Flask(__name__)
 
