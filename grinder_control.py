@@ -7,7 +7,7 @@ from flask import Flask, request, render_template
 # MQTT Configuration
 MQTT_BROKER = "192.168.178.25"  # Update with your MQTT broker IP
 MQTT_PORT = 1883
-MQTT_TOPIC = "buttons/"
+MQTT_TOPIC = "buttons/cafe"
 
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
