@@ -9,3 +9,4 @@ lgpio==0.2.2.0
 MarkupSafe==2.1.5
 pigpio==1.78
 Werkzeug==3.0.3
+paho-mqtt
