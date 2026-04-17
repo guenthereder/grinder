@@ -1,5 +1,6 @@
 import time
 import json
+import threading
 import paho.mqtt.client as mqtt
 from gpiozero import Button, OutputDevice
 from flask import Flask, request, render_template
@@ -35,13 +36,42 @@ def start_grinder(grind_time, grinder_id):
     message = json.dumps({"grinder": grinder_id})
     print(f"[start_grinder] Sending MQTT message: {message} to topic {MQTT_TOPIC}")
     mqtt_client.publish(MQTT_TOPIC, message)
+
+# Global variables to manage grinder state
+grinder_thread = None
+grinder_stop_event = None
+
+def grinder_worker(grind_time, grinder_id):
+    """Run the grinder for the specified time unless stopped early."""
     relay.on()
-    time.sleep(grind_time / 1000.0)  # Convert milliseconds to seconds
+    start = time.time()
+    while (time.time() - start) * 1000 < grind_time:
+        if grinder_stop_event and grinder_stop_event.is_set():
+            break
+        time.sleep(0.1)
     relay.off()
+    print(f"[grinder_worker] Grinder {grinder_id} finished or stopped")
+
+def toggle_grinder(grind_time, grinder_id):
+    """Start the grinder if not running, otherwise stop it early."""
+    global grinder_thread, grinder_stop_event
+    if grinder_thread and grinder_thread.is_alive():
+        # Stop the currently running grinder
+        grinder_stop_event.set()
+        grinder_thread.join()
+        grinder_thread = None
+        grinder_stop_event = None
+        print(f"[toggle_grinder] Stopped grinder {grinder_id}")
+    else:
+        # Start a new grinder thread
+        grinder_stop_event = threading.Event()
+        grinder_thread = threading.Thread(target=grinder_worker, args=(grind_time, grinder_id))
+        grinder_thread.start()
+        print(f"[toggle_grinder] Started grinder {grinder_id} for {grind_time} ms")
 
 # Assign button actions
-single_button.when_held = lambda: start_grinder(grind_times["single"], 1)
-double_button.when_held = lambda: start_grinder(grind_times["double"], 2)
+single_button.when_held = lambda: toggle_grinder(grind_times["single"], 1)
+double_button.when_held = lambda: toggle_grinder(grind_times["double"], 2)
 
 app = Flask(__name__)
 
