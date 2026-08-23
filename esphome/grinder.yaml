@@ -1,0 +1,187 @@
+# ESPHome firmware for the Rancilio Rocky grinder timer.
+# Replaces the Pi Zero + grinder_control.py setup.
+#
+# Board: NodeMCU (ESP8266, 4MB flash)
+# Wiring (all logic-side, 3.3V — SSR load side stays as before):
+#   Single grind button: D2 (GPIO4)  -> GND
+#   Double grind button: D5 (GPIO14) -> GND
+#   SSR control +:       D1 (GPIO5)
+#   SSR control -:       GND
+#
+# All grind logic runs on-device; Wi-Fi, Home Assistant, MQTT and the
+# web UI are optional extras that must never block grinding.
+
+esphome:
+  name: grinder
+  friendly_name: Coffee Grinder
+
+esp8266:
+  board: nodemcuv2
+  # Persist grind times across power cycles (ESP8266 keeps them in RTC RAM
+  # otherwise, which is lost on power loss).
+  restore_from_flash: true
+
+preferences:
+  flash_write_interval: 1min
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Never reboot just because Wi-Fi is unavailable — grinder must work offline.
+  reboot_timeout: 0s
+  ap:
+    ssid: "Grinder Setup"
+    password: !secret ap_password
+
+captive_portal:
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# Settings page at http://grinder.local/ — assets embedded in flash so it
+# works without internet access.
+web_server:
+  port: 80
+  version: 3
+  local: true
+
+# Keeps the existing statistics pipeline fed; discovery off because Home
+# Assistant already gets everything via the native API.
+mqtt:
+  broker: 192.168.178.25
+  port: 1883
+  discovery: false
+  reboot_timeout: 0s
+
+number:
+  - platform: template
+    id: single_time_ms
+    name: "Single Grind Time"
+    icon: mdi:coffee-outline
+    unit_of_measurement: ms
+    mode: box
+    min_value: 500
+    max_value: 60000
+    step: 100
+    initial_value: 14000
+    restore_value: true
+    optimistic: true
+    entity_category: config
+  - platform: template
+    id: double_time_ms
+    name: "Double Grind Time"
+    icon: mdi:coffee
+    unit_of_measurement: ms
+    mode: box
+    min_value: 500
+    max_value: 60000
+    step: 100
+    initial_value: 16000
+    restore_value: true
+    optimistic: true
+    entity_category: config
+
+switch:
+  - platform: gpio
+    id: ssr
+    name: "Grinder Motor"
+    icon: mdi:cog
+    pin: GPIO5
+    restore_mode: ALWAYS_OFF
+    # Failsafe: no matter who turned the motor on (script, HA, web UI),
+    # never let it run longer than 90s.
+    on_turn_on:
+      - delay: 90s
+      - switch.turn_off: ssr
+
+script:
+  - id: grind
+    mode: single
+    parameters:
+      duration_ms: int
+      grinder_id: int
+    then:
+      # Dropped silently when the broker is unreachable — never blocks.
+      - mqtt.publish:
+          topic: buttons/cafe
+          payload: !lambda |-
+            char buf[32];
+            snprintf(buf, sizeof(buf), "{\"grinder\": %d}", grinder_id);
+            return std::string(buf);
+      - switch.turn_on: ssr
+      - delay: !lambda 'return (uint32_t) duration_ms;'
+      - switch.turn_off: ssr
+
+  # Pressing a button while grinding stops the grind instead of restarting it.
+  - id: toggle_grind
+    parameters:
+      duration_ms: int
+      grinder_id: int
+    then:
+      - if:
+          condition:
+            switch.is_on: ssr
+          then:
+            - script.stop: grind
+            - switch.turn_off: ssr
+          else:
+            - script.execute:
+                id: grind
+                duration_ms: !lambda 'return duration_ms;'
+                grinder_id: !lambda 'return grinder_id;'
+
+binary_sensor:
+  - platform: gpio
+    id: btn_single
+    name: "Single Button"
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 100ms
+    on_press:
+      - script.execute:
+          id: toggle_grind
+          duration_ms: !lambda 'return (int) id(single_time_ms).state;'
+          grinder_id: 1
+  - platform: gpio
+    id: btn_double
+    name: "Double Button"
+    pin:
+      number: GPIO14
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - delayed_on: 100ms
+    on_press:
+      - script.execute:
+          id: toggle_grind
+          duration_ms: !lambda 'return (int) id(double_time_ms).state;'
+          grinder_id: 2
+
+# Remote triggers for Home Assistant / web UI, same toggle semantics as the
+# physical buttons.
+button:
+  - platform: template
+    name: "Grind Single"
+    icon: mdi:coffee-outline
+    on_press:
+      - script.execute:
+          id: toggle_grind
+          duration_ms: !lambda 'return (int) id(single_time_ms).state;'
+          grinder_id: 1
+  - platform: template
+    name: "Grind Double"
+    icon: mdi:coffee
+    on_press:
+      - script.execute:
+          id: toggle_grind
+          duration_ms: !lambda 'return (int) id(double_time_ms).state;'
+          grinder_id: 2
